@@ -9,7 +9,8 @@ else()
     bdev
     event_bdev
     event_accel
-    event_vhost
+    event_vhost_blk
+    event_vhost_scsi
     event_vmd
     event_sock
     accel

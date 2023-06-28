@@ -84,14 +84,14 @@ endif()
 
 
 ExternalProject_Add(spdk
-  SOURCE_DIR /home/seastar-spdk/spdk
-  # SOURCE_DIR /home/spdk
+  # SOURCE_DIR /home/seastar-spdk/spdk
+  SOURCE_DIR /home/spdk
   # GIT_REPOSITORY  git@github.com:YifangSun/spdk.git
   # GIT_TAG v22.05.x-kv
   BUILD_IN_SOURCE ON
   INSTALL_DIR    @FASTBLOCK_DEPS_INSTALL_DIR@
   CONFIGURE_COMMAND
-    <SOURCE_DIR>/configure --without-isal --disable-tests --disable-unit-tests --disable-examples --disable-apps --prefix=<INSTALL_DIR>
+    <SOURCE_DIR>/configure --without-isal --disable-tests --disable-unit-tests --disable-examples --disable-apps --prefix=<INSTALL_DIR> --enable-debug
   BUILD_COMMAND
     make -j${build_concurrency_factor}
   INSTALL_COMMAND
@@ -99,20 +99,19 @@ ExternalProject_Add(spdk
   )
 
 
-#[[
-# 暂时没用到abseil
-if (@COMPILE_abseil@)
 ExternalProject_Add(abseil
-  GIT_REPOSITORY  git@gitee.com:syf_1/abseil-cpp.git
-  GIT_TAG 5de90e2673bd0c19de67c68e2fe543444dc1114a
+  SOURCE_DIR /home/abseil-cpp
+  # GIT_REPOSITORY  git@gitee.com:syf_1/abseil-cpp.git
+  # GIT_TAG 5de90e2673bd0c19de67c68e2fe543444dc1114a
   INSTALL_DIR    @FASTBLOCK_DEPS_INSTALL_DIR@
+  BUILD_IN_SOURCE ON
   CMAKE_COMMAND
-    ${CMAKE_COMMAND} -E env ${build_env} ${CMAKE_COMMAND}
+    ${CMAKE_COMMAND} -E env ${build_env} ${CMAKE_COMMAND} -G Ninja
   BUILD_COMMAND
-    ninja -j${build_concurrency_factor}
+    make -j${build_concurrency_factor}
+  INSTALL_COMMAND
+    make install
   DEPENDS ${default_depends}
   CMAKE_ARGS
     ${common_cmake_args}
     -DABSL_ENABLE_INSTALL=ON)
-endif()
-]]
