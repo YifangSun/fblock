@@ -32,7 +32,6 @@
  */
 
 #include "spdk/stdinc.h"
-
 #include "spdk/bdev.h"
 #include "spdk/env.h"
 #include "spdk/event.h"
@@ -41,8 +40,16 @@
 #include "spdk/log.h"
 #include "spdk/string.h"
 
-#define BLOB_CLUSTERS 4
-#define WRITE_UNITS 8
+#include <time.h>
+#include <stdlib.h>
+
+#define BLOB_CLUSTERS 50000
+#define CLUSTER_SIZE 1 << 20 // 1Mb
+
+#define WRITE_NUM 1024
+
+// 每次写8个units，就是4k
+#define BLOCK_UNITS 8
 
 /*
  * We'll use this struct to gather housekeeping hello_context to pass between
@@ -56,10 +63,13 @@ struct hello_context_t {
 	struct spdk_io_channel *channel;
 	char *read_buff;
 	char *write_buff;
-	size_t  write_units;
 	uint64_t io_unit_size;
 	char* bdev_name;
 	int blob_num;
+
+	int blob_size;
+	int write_size;
+	int block_num;
 
 	int write_total;
 	int write_count;
@@ -196,18 +206,18 @@ write_iterates_continue(void *arg1, int bserrno) {
 
     // SPDK_NOTICELOG("writed %d blob id:%" PRIu64 " \n", 
     //         ctx->idx, hello_context->blobids[ctx->idx]);
-
+	ctx->idx++;
 	if (ctx->idx < ctx->max) {
-		ctx->idx++;
-
-		SPDK_NOTICELOG("blob write start:%d length:%d \n", ctx->idx * WRITE_UNITS, WRITE_UNITS);
+		int offset = rand() % (hello_context->block_num - 1);
+		offset *= BLOCK_UNITS;
+		// SPDK_NOTICELOG("blob write start:%d length:%d \n", ctx->idx * BLOCK_UNITS, BLOCK_UNITS);
 		spdk_blob_io_write(hello_context->blob, hello_context->channel,
 			   hello_context->write_buff,
-			   ctx->idx * WRITE_UNITS, WRITE_UNITS, write_iterates_continue, ctx);
+			   offset, BLOCK_UNITS, write_iterates_continue, ctx);
 	} else {
 		uint64_t now = spdk_get_ticks();
 		double us = env_ticks_to_usecs(now - ctx->start);
-		SPDK_NOTICELOG("write %d blob, time: %lf\n", ctx->idx, us);
+		SPDK_NOTICELOG("iterates write %d block, total time: %lf us\n", ctx->idx, us);
 
 		spdk_blob_close(hello_context->blob, delete_blob, hello_context);
 		free(ctx);
@@ -222,19 +232,34 @@ blob_write_iterates(struct hello_context_t *hello_context) {
 	ctx = (struct write_ctx_t*)calloc(1, sizeof(struct write_ctx_t));
 	ctx->hello_ctx = hello_context;
 	ctx->idx = 0;
-	ctx->max = BLOB_CLUSTERS * 1048576 / (hello_context->io_unit_size * WRITE_UNITS);;
+	ctx->max = 100000;
+	// ctx->max = BLOB_CLUSTERS * 1048576 / (hello_context->io_unit_size * BLOCK_UNITS);
 	ctx->start = spdk_get_ticks();
     hello_context->channel = spdk_bs_alloc_io_channel(hello_context->bs);
-    hello_context->write_buff = (char*)spdk_malloc(512 * WRITE_UNITS,
+    hello_context->write_buff = (char*)spdk_malloc(512 * BLOCK_UNITS,
                     0x1000, NULL, SPDK_ENV_LCORE_ID_ANY,
                     SPDK_MALLOC_DMA);
+	memset(hello_context->write_buff, 0x5a, 512 * BLOCK_UNITS);
 
-    memset(hello_context->write_buff, 0x5a, 512 * WRITE_UNITS);
+	hello_context->blob_size = BLOB_CLUSTERS * CLUSTER_SIZE;
+	// SPDK_NOTICELOG("BLOB_CLUSTERS:%d CLUSTER_SIZE:%d blob_size:%d\n", 
+	// 	BLOB_CLUSTERS, CLUSTER_SIZE, blob_size);
 
-	SPDK_NOTICELOG("blob write start:%d length:%d \n", ctx->idx * WRITE_UNITS, WRITE_UNITS);
+	hello_context->write_size = hello_context->io_unit_size * BLOCK_UNITS;
+	// SPDK_NOTICELOG("io_unit_size:%d BLOCK_UNITS:%d write_size:%d\n", 
+	// 	hello_context->io_unit_size, BLOCK_UNITS, write_size);
+
+	hello_context->block_num = hello_context->blob_size / hello_context->write_size;
+	// SPDK_NOTICELOG("blob_size:%d write_size:%d block_num:%d\n", 
+	// 	blob_size, write_size, block_num);
+
+	
+	int offset = rand() % hello_context->block_num;
+	offset *= BLOCK_UNITS;
+	// SPDK_NOTICELOG("blob write start:%d length:%d \n", offset, BLOCK_UNITS);
 	spdk_blob_io_write(hello_context->blob, hello_context->channel,
 			   hello_context->write_buff,
-			   ctx->idx * WRITE_UNITS, WRITE_UNITS, write_iterates_continue, ctx);
+			   offset, BLOCK_UNITS, write_iterates_continue, ctx);
 }
 
 static void
@@ -242,7 +267,7 @@ write_parallel_complete(void *arg1, int bserrno)
 {
 	struct hello_context_t *hello_context = (struct hello_context_t *)arg1;
 
-	SPDK_NOTICELOG("entry\n");
+	// SPDK_NOTICELOG("entry\n");
 	if (bserrno) {
 		unload_bs(hello_context, "Error in write parallel completion",
 			  bserrno);
@@ -250,11 +275,11 @@ write_parallel_complete(void *arg1, int bserrno)
 	}
 	hello_context->write_count++;
 
-	// 平行写写完了
+	// 并行写结束
 	if (hello_context->write_count == hello_context->write_total) {
 		uint64_t now = spdk_get_ticks();
 		double us = env_ticks_to_usecs(now - hello_context->start);
-		SPDK_NOTICELOG("write %d blob, time: %lf\n", hello_context->write_count, us);
+		SPDK_NOTICELOG("parallel write %d block, time: %lf\n", hello_context->write_count, us);
 
 		spdk_blob_close(hello_context->blob, delete_blob, hello_context);
 	}	
@@ -263,17 +288,17 @@ write_parallel_complete(void *arg1, int bserrno)
 static void
 blob_write_parallel(struct hello_context_t *hello_context)
 {
-	SPDK_NOTICELOG("blob_write_parallel entry\n");
-	uint32_t block_num;
+	// SPDK_NOTICELOG("blob_write_parallel entry\n");
+	int block_num, blob_size, write_size;
 
 	/*
 	 * Buffers for data transfer need to be allocated via SPDK. We will
 	 * transfer 1 io_unit of 4K aligned data at offset 0 in the blob.
 	 */
-	hello_context->write_buff = (char*)spdk_malloc(512 * WRITE_UNITS,
+	hello_context->write_buff = (char*)spdk_malloc(512 * BLOCK_UNITS,
 				0x1000, NULL, SPDK_ENV_LCORE_ID_ANY,
 				SPDK_MALLOC_DMA);
-    memset(hello_context->write_buff, 0x5a, 512 * WRITE_UNITS);
+    memset(hello_context->write_buff, 0x5a, 512 * BLOCK_UNITS);
 	if (hello_context->write_buff == NULL) {
 		unload_bs(hello_context, "Error in allocating memory",
 			  -ENOMEM);
@@ -288,12 +313,28 @@ blob_write_parallel(struct hello_context_t *hello_context)
 		return;
 	}
 
+	hello_context->blob_size = BLOB_CLUSTERS * CLUSTER_SIZE;
+	// SPDK_NOTICELOG("BLOB_CLUSTERS:%d CLUSTER_SIZE:%d blob_size:%d\n", 
+	// 	BLOB_CLUSTERS, CLUSTER_SIZE, blob_size);
+
+	hello_context->write_size = hello_context->io_unit_size * BLOCK_UNITS;
+	// SPDK_NOTICELOG("io_unit_size:%d BLOCK_UNITS:%d write_size:%d\n", 
+	// 	hello_context->io_unit_size, BLOCK_UNITS, write_size);
+
+	hello_context->block_num = hello_context->blob_size / hello_context->write_size;
+	// SPDK_NOTICELOG("blob_size:%d write_size:%d block_num:%d\n", 
+	// 	blob_size, write_size, block_num);
+
+	hello_context->write_total = std::min(block_num, WRITE_NUM);
 	hello_context->start = spdk_get_ticks();
-	block_num = BLOB_CLUSTERS * 1048576 / (hello_context->io_unit_size * WRITE_UNITS);
-	for (uint32_t i = 0; i < block_num; i++) {
+
+	for (uint32_t i = 0; i < hello_context->write_total; i++) {
+		// SPDK_NOTICELOG("parallel write start:%d length:%d \n", i * BLOCK_UNITS, BLOCK_UNITS);
+		int offset = rand() % (hello_context->block_num - 1);
+		offset *= BLOCK_UNITS;
 		spdk_blob_io_write(hello_context->blob, hello_context->channel,
 			   hello_context->write_buff,
-			   i * WRITE_UNITS, WRITE_UNITS, write_parallel_complete, hello_context);
+			   offset, BLOCK_UNITS, write_parallel_complete, hello_context);
 	}
 }
 
@@ -463,6 +504,7 @@ main(int argc, char **argv)
 		 * hello_start() returns), or if an error occurs during
 		 * spdk_app_start() before hello_start() runs.
 		 */
+		srand(time(0));
 		hello_context->channel = NULL;
 		hello_context->blob_num = 0;
 		hello_context->bdev_name = argv[2];

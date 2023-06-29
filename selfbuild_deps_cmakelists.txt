@@ -85,13 +85,13 @@ endif()
 
 ExternalProject_Add(spdk
   # SOURCE_DIR /home/seastar-spdk/spdk
-  SOURCE_DIR /home/spdk
+  SOURCE_DIR /code/spdk
   # GIT_REPOSITORY  git@github.com:YifangSun/spdk.git
   # GIT_TAG v22.05.x-kv
   BUILD_IN_SOURCE ON
   INSTALL_DIR    @FASTBLOCK_DEPS_INSTALL_DIR@
   CONFIGURE_COMMAND
-    <SOURCE_DIR>/configure --without-isal --disable-tests --disable-unit-tests --disable-examples --disable-apps --prefix=<INSTALL_DIR> --enable-debug
+    <SOURCE_DIR>/configure --without-isal --disable-tests --disable-unit-tests --disable-examples --disable-apps --prefix=<INSTALL_DIR> --enable-debug --enable-asan
   BUILD_COMMAND
     make -j${build_concurrency_factor}
   INSTALL_COMMAND
