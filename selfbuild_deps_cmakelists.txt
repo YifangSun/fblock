@@ -98,7 +98,7 @@ ExternalProject_Add(spdk
     make install
   )
 
-
+#[[
 ExternalProject_Add(abseil
   SOURCE_DIR /home/abseil-cpp
   # GIT_REPOSITORY  git@gitee.com:syf_1/abseil-cpp.git
@@ -115,3 +115,4 @@ ExternalProject_Add(abseil
   CMAKE_ARGS
     ${common_cmake_args}
     -DABSL_ENABLE_INSTALL=ON)
+]]

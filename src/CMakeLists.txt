@@ -1,5 +1,5 @@
 find_package(spdk REQUIRED)
-find_package(absl REQUIRED)
+# find_package(absl REQUIRED)
 
 add_subdirectory(blob_test)
 add_subdirectory(hello_blob)

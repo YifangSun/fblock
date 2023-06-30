@@ -16,7 +16,8 @@ add_compile_options(
 target_link_libraries (vhost
   PUBLIC
     spdk::spdk
-    )
+    asan
+  )
 
 set_target_properties (vhost
   PROPERTIES

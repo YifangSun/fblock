@@ -5,7 +5,8 @@ add_library(sunyifang_spdk STATIC
 
 target_link_libraries (sunyifang_spdk
   PUBLIC
-    spdk::spdk)
+    spdk::spdk
+    asan)
 
 add_executable(semaphore_test
   semaphore_test.cc

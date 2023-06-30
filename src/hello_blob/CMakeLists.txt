@@ -7,6 +7,7 @@ add_executable(hello_blob
 target_link_libraries(hello_blob 
   PUBLIC 
     spdk::spdk
+    asan
 )
 
 target_include_directories (hello_blob

@@ -7,8 +7,7 @@ add_executable(hello_tree
 target_link_libraries(hello_tree 
   PUBLIC 
     spdk::spdk
-    absl::flat_hash_map
-    absl::btree
+    asan
   )
 
 target_include_directories (hello_tree

@@ -7,6 +7,7 @@ add_executable(tailq_test
 target_link_libraries(tailq_test 
   PUBLIC
     spdk::spdk
+    asan
 )
 
 target_include_directories (tailq_test

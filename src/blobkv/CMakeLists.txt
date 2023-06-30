@@ -7,8 +7,9 @@ add_executable(blobkv
 target_link_libraries(blobkv 
   PUBLIC 
     spdk::spdk
-    absl::flat_hash_map
-    absl::btree
+    asan
+    # absl::flat_hash_map
+    # absl::btree
   )
 
 target_include_directories (blobkv
