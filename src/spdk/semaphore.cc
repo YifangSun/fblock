@@ -21,7 +21,6 @@ void spdk_sem_wait(struct spdk_sem_t* sem, size_t units, spdk_sem_entry_fn fn, v
         // printf("run\n");
         return;
     }
-
     
     struct waiter_entry *entry = (struct waiter_entry*)calloc(1, sizeof(struct waiter_entry));
     entry->units = units;
@@ -32,19 +31,19 @@ void spdk_sem_wait(struct spdk_sem_t* sem, size_t units, spdk_sem_entry_fn fn, v
 }
 
 void spdk_sem_signal(struct spdk_sem_t* sem, size_t units) {
-    struct waiter_entry * first;
+    struct waiter_entry * front;
     sem->count += units;
     // printf("put %d\n", units);
-    while (first = TAILQ_FIRST(&sem->waiters),
-        first && spdk_sem_has_units(sem, first->units)
+    while (front = TAILQ_FIRST(&sem->waiters),
+        front && spdk_sem_has_units(sem, front->units)
         && !spdk_sem_empty(sem)) 
     {
-        TAILQ_REMOVE(&sem->waiters, first, next);
-        printf("signal run waiter, sem:%d takes:%d\n", sem->count, first->units);
-        sem->count -= first->units;
-        first->fn(first->arg);
+        TAILQ_REMOVE(&sem->waiters, front, next);
+        printf("signal run waiter, sem:%d takes:%d\n", sem->count, front->units);
+        sem->count -= front->units;
+        front->fn(front->arg);
         // printf("run\n");
-        free(first);
+        free(front);
         // printf("free\n");
     }
 }

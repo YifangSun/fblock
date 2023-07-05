@@ -10,14 +10,6 @@
             "trtype": "pcie",
             "traddr": "0000:03:00.0"
           }
-        },
-        {
-          "method": "bdev_nvme_attach_controller",
-          "params": {
-            "name": "nvme1",
-            "trtype": "pcie",
-            "traddr": "0000:0b:00.0"
-          }
         }
       ]
     }

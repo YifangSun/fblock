@@ -13,7 +13,6 @@ struct waiter_entry {
 	void * arg;
 };
 
-// 写法参考lib/ftl/ftl_core.h
 struct spdk_sem_t {
     size_t count;
     TAILQ_HEAD(, waiter_entry) waiters;

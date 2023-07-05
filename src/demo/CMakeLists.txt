@@ -1,0 +1,3 @@
+add_subdirectory(blob_demo)
+add_subdirectory(hello_blob)
+add_subdirectory(hello_tree)

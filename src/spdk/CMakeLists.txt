@@ -1,5 +1,4 @@
 add_library(sunyifang_spdk STATIC
-  empty.cc
   semaphore.cc
 )
 
